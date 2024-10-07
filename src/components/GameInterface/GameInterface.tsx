@@ -1,12 +1,13 @@
 "use client"
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { createPlayer, createEnemy } from '@/components';
+import { createPlayer, createEnemy, createProjectile } from '@/components';
 
 const GameInterface: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   let player: any;
   const enemies: any[] = [];
+  const projectiles: any[] = [];
   let keys: { [key: string]: boolean } = {};
 
   useEffect(() => {
@@ -19,34 +20,34 @@ const GameInterface: React.FC = () => {
       canvasRef.current.appendChild(renderer.domElement);
     }
 
-    // Skybox
-    const skyColor = new THREE.Color(0x87CEEB); // Light blue sky
-    scene.background = skyColor;
+   // Skybox
+   const skyColor = new THREE.Color(0x87CEEB); // Light blue sky
+   scene.background = skyColor;
 
-    // Ground plane
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 }); // Green for ground
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
+   // Ground plane
+   const groundGeometry = new THREE.PlaneGeometry(100, 100);
+   const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 }); // Green for ground
+   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+   ground.rotation.x = -Math.PI / 2;
+   scene.add(ground);
 
-    // Stones and Woods as obstacles
-    const createObstacle = (size: number, color: number, position: THREE.Vector3) => {
-      const geometry = new THREE.BoxGeometry(size, size, size);
-      const material = new THREE.MeshBasicMaterial({ color });
-      const obstacle = new THREE.Mesh(geometry, material);
-      obstacle.position.copy(position);
-      return obstacle;
-    };
+   // Stones and Woods as obstacles
+   const createObstacle = (size: number, color: number, position: THREE.Vector3) => {
+     const geometry = new THREE.BoxGeometry(size, size, size);
+     const material = new THREE.MeshBasicMaterial({ color });
+     const obstacle = new THREE.Mesh(geometry, material);
+     obstacle.position.copy(position);
+     return obstacle;
+   };
 
-    const stone = createObstacle(3, 0x808080, new THREE.Vector3(5, 1.5, 5)); // Stone obstacle
-    const wood = createObstacle(2, 0x8B4513, new THREE.Vector3(-5, 1, -5)); // Wood obstacle
-    scene.add(stone);
-    scene.add(wood);
+   const stone = createObstacle(3, 0x808080, new THREE.Vector3(5, 1.5, 5)); // Stone obstacle
+   const wood = createObstacle(2, 0x8B4513, new THREE.Vector3(-5, 1, -5)); // Wood obstacle
+   scene.add(stone);
+   scene.add(wood);
 
     // Create player
     const playerHealth = 100;
-    const playerWeapon = { type: 'gun', power: 10 }; // Example weapon
+    const playerWeapon = { type: 'gun', power: 10 };
     player = createPlayer(new THREE.Vector3(0, 0, 0), playerHealth, playerWeapon);
     scene.add(player.mesh);
 
@@ -59,7 +60,7 @@ const GameInterface: React.FC = () => {
     scene.add(enemy1.mesh);
     scene.add(enemy2.mesh);
 
-    // Set camera position for a clear top-down view
+    // Set camera for top-down view
     camera.position.set(0, 50, 50);
     camera.lookAt(0, 0, 0);
 
@@ -71,9 +72,28 @@ const GameInterface: React.FC = () => {
       if (keys['ArrowRight']) player.mesh.position.x += 0.2;
     };
 
+    const shootProjectile = (origin: THREE.Vector3, direction: THREE.Vector3) => {
+      const projectile = createProjectile(origin, direction.normalize(), 0.5); // Bullet with speed 0.5
+      projectiles.push(projectile);
+      scene.add(projectile.mesh);
+    };
+
+    // Animate function for rendering
     const animate = () => {
       requestAnimationFrame(animate);
       movePlayer();
+
+      // Update projectiles
+      projectiles.forEach((projectile, index) => {
+        projectile.update();
+
+        // Remove projectile if it goes off-screen
+        if (projectile.mesh.position.length() > 50) {
+          scene.remove(projectile.mesh);
+          projectiles.splice(index, 1);
+        }
+      });
+
       renderer.render(scene, camera);
     };
 
@@ -87,8 +107,9 @@ const GameInterface: React.FC = () => {
     });
 
     window.addEventListener('click', () => {
-      // Player shooting action (can be improved with bullet logic)
-      console.log('Player fired!');
+      // Shoot when player clicks
+      const direction = new THREE.Vector3(1, 0, 0).applyQuaternion(player.mesh.quaternion);
+      shootProjectile(player.mesh.position.clone(), direction);
     });
 
     // Key events for movement
